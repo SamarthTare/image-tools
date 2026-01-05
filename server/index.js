@@ -91,8 +91,34 @@ app.post('/compress', upload.single('image'), async (req, res) => {
         res.status(500).send("Compression Failed");
     }
 });
+// 4. 📏 RESIZE IMAGE (New Feature)
+app.post('/resize', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).send("No file uploaded");
+        
+        // User se width aur height lena
+        const width = parseInt(req.body.width);
+        const height = parseInt(req.body.height);
 
-// 4. 📄 IMAGE TO PDF
+        if (!width || !height) return res.status(400).send("Width and Height are required");
+
+        const filename = `resized-${Date.now()}.png`; // Default PNG rakhte hain
+        const outputPath = path.join(uploadDir, filename);
+        
+        // Sharp ka magic: resize karna
+        await sharp(req.file.buffer)
+            .resize({ width: width, height: height, fit: 'fill' }) // 'fill' image ko kheench kar exact size karega
+            .toFile(outputPath);
+
+        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
+
+        res.json({ downloadLink });
+    } catch (e) {
+        console.error(e);
+        res.status(500).send("Resizing Failed");
+    }
+});
+// 5. 📄 IMAGE TO PDF
 app.post('/to-pdf', upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
