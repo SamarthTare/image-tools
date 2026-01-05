@@ -3,8 +3,33 @@ import { Routes, Route, Link } from 'react-router-dom';
 import axios from 'axios';
 import Home from './Home';
 
-// 👇👇 YAHAN APKA NAYA BACKEND LINK HAI 👇👇
+// 👇👇 APKA BACKEND LINK 👇👇
 const API_URL = "https://image-converter-free.onrender.com";
+
+// --- MAGIC DOWNLOAD FUNCTION 🪄 ---
+// Ye function file ko "Blob" (Data) ki tarah lata hai aur download force karta hai
+const forceDownload = async (url, filename) => {
+  try {
+    const response = await axios.get(url, {
+      responseType: 'blob', // Important: Server se file ka data maango
+    });
+    
+    // Virtual Link banao aur click karo
+    const blobUrl = window.URL.createObjectURL(new Blob([response.data]));
+    const link = document.createElement('a');
+    link.href = blobUrl;
+    link.setAttribute('download', filename || 'downloaded-file');
+    document.body.appendChild(link);
+    link.click();
+    
+    // Cleanup
+    link.remove();
+    window.URL.revokeObjectURL(blobUrl);
+  } catch (error) {
+    console.error("Download failed", error);
+    alert("Could not download file. Please try again.");
+  }
+};
 
 // 1. CONVERTER TOOL 🖼️
 const Converter = () => {
@@ -28,7 +53,11 @@ const Converter = () => {
   };
 
   return (
-    <ToolLayout title="Image Converter 🖼️" link={link}>
+    <ToolLayout 
+      title="Image Converter 🖼️" 
+      link={link} 
+      filename={`converted-image.${format}`} // Filename pass kar rahe hain
+    >
       <form onSubmit={handleConvert}>
         <input type="file" className="form-control mb-3" onChange={e => setFile(e.target.files[0])} required />
         <select className="form-select mb-3" onChange={e => setFormat(e.target.value)}>
@@ -66,7 +95,7 @@ const Compressor = () => {
   };
 
   return (
-    <ToolLayout title="Compress Image 📉" link={link}>
+    <ToolLayout title="Compress Image 📉" link={link} filename="compressed-image.jpeg">
       <form onSubmit={handleCompress}>
         <input type="file" className="form-control mb-3" onChange={e => setFile(e.target.files[0])} required />
         <label className="form-label">Compression Level: {quality}%</label>
@@ -99,7 +128,7 @@ const PdfMaker = () => {
   };
 
   return (
-    <ToolLayout title="Image to PDF 📄" link={link}>
+    <ToolLayout title="Image to PDF 📄" link={link} filename="document.pdf">
       <form onSubmit={handlePdf}>
         <input type="file" className="form-control mb-3" onChange={e => setFile(e.target.files[0])} required />
         <button className="btn btn-danger w-100" disabled={loading}>
@@ -110,22 +139,20 @@ const PdfMaker = () => {
   );
 };
 
-// --- COMMON LAYOUT (Fixed Download Button) ---
-const ToolLayout = ({ title, children, link }) => (
+// --- UPDATED LAYOUT (Button instead of Link) ---
+const ToolLayout = ({ title, children, link, filename }) => (
   <div className="d-flex flex-column align-items-center mt-5">
     <div className="card shadow p-4" style={{ width: '400px' }}>
       <h3 className="text-center mb-4">{title}</h3>
       {children}
       {link && (
-        // 👇👇 FIX ADDED HERE: target="_blank"
-        <a 
-          href={link} 
-          target="_blank" 
-          rel="noopener noreferrer"
+        // 👇 AB HUM 'a' TAG USE NAHI KARENGE, BUTTON USE KARENGE
+        <button 
+          onClick={() => forceDownload(link, filename)}
           className="btn btn-success w-100 mt-3 animate__animated animate__fadeIn"
         >
           ⬇️ Download File
-        </a>
+        </button>
       )}
       <Link to="/" className="btn btn-link w-100 mt-2 text-decoration-none">⬅ Back to Home</Link>
     </div>
