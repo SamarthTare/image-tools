@@ -10,7 +10,7 @@ const app = express();
 
 app.use(express.json());
 
-// 👇 1. CORS Setup (Sabke liye open)
+// CORS Setup
 app.use(cors({
     origin: "*", 
     methods: ["GET", "POST", "PUT", "DELETE"]
@@ -26,6 +26,20 @@ if (!fs.existsSync(uploadDir)) {
 
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
+
+// ==========================================
+// 👇 NEW: DOWNLOAD ROUTE (Ye Force Download karega)
+// ==========================================
+app.get('/download/:filename', (req, res) => {
+    const filePath = path.join(__dirname, 'uploads', req.params.filename);
+    // Ye line browser ko bolti hai: "File kholo mat, download karo"
+    res.download(filePath, req.params.filename, (err) => {
+        if (err) {
+            console.error("Download Error:", err);
+            res.status(500).send("Could not download file.");
+        }
+    });
+});
 
 // ==========================================
 // 🚀 APP ROUTES
@@ -44,10 +58,10 @@ app.post('/convert', upload.single('image'), async (req, res) => {
             .toFormat(format)
             .toFile(outputPath);
 
-        // 👇 MAGIC: Ye automatic link banayega (Localhost ya Render dono par chalega)
         const protocol = req.protocol;
         const host = req.get('host');
-        const downloadLink = `${protocol}://${host}/${filename}`;
+        // 👇 Change: Link ab '/download/' point karega
+        const downloadLink = `${protocol}://${host}/download/${filename}`;
 
         res.json({ downloadLink });
     } catch (e) {
@@ -71,7 +85,8 @@ app.post('/compress', upload.single('image'), async (req, res) => {
 
         const protocol = req.protocol;
         const host = req.get('host');
-        const downloadLink = `${protocol}://${host}/${filename}`;
+        // 👇 Change: Link ab '/download/' point karega
+        const downloadLink = `${protocol}://${host}/download/${filename}`;
 
         res.json({ downloadLink });
     } catch (e) {
@@ -103,7 +118,8 @@ app.post('/to-pdf', upload.single('image'), (req, res) => {
         stream.on('finish', () => {
             const protocol = req.protocol;
             const host = req.get('host');
-            const downloadLink = `${protocol}://${host}/${filename}`;
+            // 👇 Change: Link ab '/download/' point karega
+            const downloadLink = `${protocol}://${host}/download/${filename}`;
             res.json({ downloadLink });
         });
 
@@ -113,13 +129,8 @@ app.post('/to-pdf', upload.single('image'), (req, res) => {
     }
 });
 
-// ==========================================
-// 🚀 START SERVER
-// ==========================================
-
-// 👇 2. Dynamic Port (Deployment ke liye zaroori)
+// START SERVER
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
     console.log(`🚀 Server running on port ${PORT}`);
 });
