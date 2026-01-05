@@ -21,7 +21,6 @@ const Converter = () => {
     formData.append('format', format);
     
     try {
-      // 👇 Link Updated
       const res = await axios.post(`${API_URL}/convert`, formData);
       setLink(res.data.downloadLink);
     } catch (error) { alert("Error converting file"); }
@@ -60,7 +59,6 @@ const Compressor = () => {
     formData.append('quality', quality);
 
     try {
-      // 👇 Link Updated
       const res = await axios.post(`${API_URL}/compress`, formData);
       setLink(res.data.downloadLink);
     } catch (error) { alert("Error compressing file"); }
@@ -94,7 +92,6 @@ const PdfMaker = () => {
     formData.append('image', file);
 
     try {
-      // 👇 Link Updated
       const res = await axios.post(`${API_URL}/to-pdf`, formData);
       setLink(res.data.downloadLink);
     } catch (error) { alert("Error generating PDF"); }
@@ -113,14 +110,20 @@ const PdfMaker = () => {
   );
 };
 
-// --- COMMON LAYOUT ---
+// --- COMMON LAYOUT (Fixed Download Button) ---
 const ToolLayout = ({ title, children, link }) => (
   <div className="d-flex flex-column align-items-center mt-5">
     <div className="card shadow p-4" style={{ width: '400px' }}>
       <h3 className="text-center mb-4">{title}</h3>
       {children}
       {link && (
-        <a href={link} download className="btn btn-success w-100 mt-3 animate__animated animate__fadeIn">
+        // 👇👇 FIX ADDED HERE: target="_blank"
+        <a 
+          href={link} 
+          target="_blank" 
+          rel="noopener noreferrer"
+          className="btn btn-success w-100 mt-3 animate__animated animate__fadeIn"
+        >
           ⬇️ Download File
         </a>
       )}
