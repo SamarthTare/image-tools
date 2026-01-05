@@ -27,12 +27,17 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// ==========================================
-// 👇 NEW: DOWNLOAD ROUTE (Ye Force Download karega)
-// ==========================================
+// --- HELPER FUNCTION: Smart Protocol Detection ---
+// Ye check karega: Agar localhost hai to HTTP, warna HTTPS (Render ke liye)
+const getBaseUrl = (req) => {
+    const host = req.get('host');
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    return `${protocol}://${host}`;
+}
+
+// 1. 👇 DOWNLOAD ROUTE
 app.get('/download/:filename', (req, res) => {
     const filePath = path.join(__dirname, 'uploads', req.params.filename);
-    // Ye line browser ko bolti hai: "File kholo mat, download karo"
     res.download(filePath, req.params.filename, (err) => {
         if (err) {
             console.error("Download Error:", err);
@@ -41,11 +46,7 @@ app.get('/download/:filename', (req, res) => {
     });
 });
 
-// ==========================================
-// 🚀 APP ROUTES
-// ==========================================
-
-// 1. 🖼️ CONVERT IMAGE
+// 2. 🖼️ CONVERT IMAGE
 app.post('/convert', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
@@ -58,10 +59,8 @@ app.post('/convert', upload.single('image'), async (req, res) => {
             .toFormat(format)
             .toFile(outputPath);
 
-        const protocol = req.protocol;
-        const host = req.get('host');
-        // 👇 Change: Link ab '/download/' point karega
-        const downloadLink = `${protocol}://${host}/download/${filename}`;
+        // 👇 FIXED: Use Smart Protocol
+        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
 
         res.json({ downloadLink });
     } catch (e) {
@@ -70,7 +69,7 @@ app.post('/convert', upload.single('image'), async (req, res) => {
     }
 });
 
-// 2. 📉 COMPRESS IMAGE
+// 3. 📉 COMPRESS IMAGE
 app.post('/compress', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
@@ -83,10 +82,8 @@ app.post('/compress', upload.single('image'), async (req, res) => {
             .jpeg({ quality: quality }) 
             .toFile(outputPath);
 
-        const protocol = req.protocol;
-        const host = req.get('host');
-        // 👇 Change: Link ab '/download/' point karega
-        const downloadLink = `${protocol}://${host}/download/${filename}`;
+        // 👇 FIXED: Use Smart Protocol
+        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
 
         res.json({ downloadLink });
     } catch (e) {
@@ -95,7 +92,7 @@ app.post('/compress', upload.single('image'), async (req, res) => {
     }
 });
 
-// 3. 📄 IMAGE TO PDF
+// 4. 📄 IMAGE TO PDF
 app.post('/to-pdf', upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
@@ -116,10 +113,8 @@ app.post('/to-pdf', upload.single('image'), (req, res) => {
         doc.end();
 
         stream.on('finish', () => {
-            const protocol = req.protocol;
-            const host = req.get('host');
-            // 👇 Change: Link ab '/download/' point karega
-            const downloadLink = `${protocol}://${host}/download/${filename}`;
+            // 👇 FIXED: Use Smart Protocol
+            const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
             res.json({ downloadLink });
         });
 
