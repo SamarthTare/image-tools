@@ -5,8 +5,14 @@ const sharp = require('sharp');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
+const rateLimit = require('express-rate-limit'); // 👇 NEW IMPORT
 
 const app = express();
+
+// 👇 IMPORTANT FOR RENDER (Proxy Trust)
+// Render ek proxy ke peeche chalta hai, isliye ye zaroori hai
+// taaki hum user ka asli IP address pehchan sakein.
+app.set('trust proxy', 1);
 
 app.use(express.json());
 
@@ -15,6 +21,18 @@ app.use(cors({
     origin: "*", 
     methods: ["GET", "POST", "PUT", "DELETE"]
 }));
+
+// 👇 SECURITY: RATE LIMITER ADDED HERE
+const limiter = rateLimit({
+    windowMs: 15 * 60 * 1000, // 15 Minutes
+    max: 100, // Limit each IP to 100 requests per windowMs
+    message: "Too many requests from this IP, please try again after 15 minutes.",
+    standardHeaders: true, 
+    legacyHeaders: false,
+});
+
+// Apply rate limiting to all requests
+app.use(limiter);
 
 // Uploads folder public access
 app.use(express.static('uploads'));
@@ -27,12 +45,13 @@ if (!fs.existsSync(uploadDir)) {
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// --- HELPER FUNCTION: Smart Protocol Detection ---
-// Ye check karega: Agar localhost hai to HTTP, warna HTTPS (Render ke liye)
+// --- HELPER FUNCTION: FORCE HTTPS ---
 const getBaseUrl = (req) => {
     const host = req.get('host');
-    const protocol = host.includes('localhost') ? 'http' : 'https';
-    return `${protocol}://${host}`;
+    if (host.includes('localhost')) {
+        return `http://${host}`;
+    }
+    return "https://image-converter-free.onrender.com";
 }
 
 // 1. 👇 DOWNLOAD ROUTE
@@ -59,7 +78,6 @@ app.post('/convert', upload.single('image'), async (req, res) => {
             .toFormat(format)
             .toFile(outputPath);
 
-        // 👇 FIXED: Use Smart Protocol
         const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
 
         res.json({ downloadLink });
@@ -82,7 +100,6 @@ app.post('/compress', upload.single('image'), async (req, res) => {
             .jpeg({ quality: quality }) 
             .toFile(outputPath);
 
-        // 👇 FIXED: Use Smart Protocol
         const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
 
         res.json({ downloadLink });
@@ -91,34 +108,8 @@ app.post('/compress', upload.single('image'), async (req, res) => {
         res.status(500).send("Compression Failed");
     }
 });
-// 4. 📏 RESIZE IMAGE (New Feature)
-app.post('/resize', upload.single('image'), async (req, res) => {
-    try {
-        if (!req.file) return res.status(400).send("No file uploaded");
-        
-        // User se width aur height lena
-        const width = parseInt(req.body.width);
-        const height = parseInt(req.body.height);
 
-        if (!width || !height) return res.status(400).send("Width and Height are required");
-
-        const filename = `resized-${Date.now()}.png`; // Default PNG rakhte hain
-        const outputPath = path.join(uploadDir, filename);
-        
-        // Sharp ka magic: resize karna
-        await sharp(req.file.buffer)
-            .resize({ width: width, height: height, fit: 'fill' }) // 'fill' image ko kheench kar exact size karega
-            .toFile(outputPath);
-
-        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
-
-        res.json({ downloadLink });
-    } catch (e) {
-        console.error(e);
-        res.status(500).send("Resizing Failed");
-    }
-});
-// 5. 📄 IMAGE TO PDF
+// 4. 📄 IMAGE TO PDF
 app.post('/to-pdf', upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
@@ -139,7 +130,6 @@ app.post('/to-pdf', upload.single('image'), (req, res) => {
         doc.end();
 
         stream.on('finish', () => {
-            // 👇 FIXED: Use Smart Protocol
             const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
             res.json({ downloadLink });
         });
@@ -147,6 +137,32 @@ app.post('/to-pdf', upload.single('image'), (req, res) => {
     } catch (e) {
         console.error(e);
         res.status(500).send("PDF Generation Failed");
+    }
+});
+
+// 5. 📏 RESIZE IMAGE
+app.post('/resize', upload.single('image'), async (req, res) => {
+    try {
+        if (!req.file) return res.status(400).send("No file uploaded");
+        
+        const width = parseInt(req.body.width);
+        const height = parseInt(req.body.height);
+
+        if (!width || !height) return res.status(400).send("Width and Height are required");
+
+        const filename = `resized-${Date.now()}.png`; 
+        const outputPath = path.join(uploadDir, filename);
+        
+        await sharp(req.file.buffer)
+            .resize({ width: width, height: height, fit: 'fill' }) 
+            .toFile(outputPath);
+
+        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
+
+        res.json({ downloadLink });
+    } catch (e) {
+        console.error(e);
+        res.status(500).send("Resizing Failed");
     }
 });
 
