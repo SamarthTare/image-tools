@@ -279,18 +279,42 @@ const ToolLayout = ({ title, children, link, filename }) => (
 );
 
 // --- MAIN APP ---
+// --- MAIN APP (UPDATED NAVBAR) ---
 function App() {
   return (
     <div className="min-vh-100 bg-light font-monospace">
-      <nav className="navbar navbar-dark bg-dark px-4 mb-4">
-        <Link to="/" className="navbar-brand fw-bold">⚡ ImageTools Pro</Link>
-        <div className='d-flex gap-3 d-none d-md-flex'>
-             <Link to="/convert" className="text-white text-decoration-none small">Convert</Link>
-             <Link to="/compress" className="text-white text-decoration-none small">Compress</Link>
-             <Link to="/pdf" className="text-white text-decoration-none small">PDF</Link>
-             <Link to="/resize" className="text-white text-decoration-none small">Resize</Link>
+      
+      {/* 👇 NAVBAR UPDATED: Ab ye Professional lagega */}
+      <nav className="navbar navbar-dark bg-dark px-4 mb-4 justify-content-between align-items-center shadow-sm">
+        
+        {/* Left Side: Brand Logo */}
+        <Link to="/" className="navbar-brand fw-bold d-flex align-items-center gap-2">
+          {/* Lightning Icon Added */}
+          <i className="bi bi-lightning-charge-fill text-warning"></i> ImageTools Pro
+        </Link>
+        
+        {/* Right Side: GitHub & Contact (Clean Look) */}
+        <div className='d-flex align-items-center gap-4'>
+             
+             {/* 1. GitHub Link (Portfolio Credibility) */}
+             <a href="https://github.com/SamarthTare" target="_blank" rel="noreferrer" 
+                className="text-white text-decoration-none d-flex align-items-center gap-2" 
+                style={{ opacity: 0.9 }}>
+                <i className="bi bi-github fs-5"></i>
+                {/* Mobile me text chup jayega, sirf icon dikhega */}
+                <span className="d-none d-md-block small">GitHub</span>
+             </a>
+
+             {/* 2. Contact Button */}
+             <a href="mailto:samarthtare441@gmail.com" 
+                className="btn btn-sm btn-outline-light rounded-pill px-3 fw-bold d-flex align-items-center gap-2">
+                <i className="bi bi-envelope-fill"></i> 
+                <span>Contact Me</span>
+             </a>
         </div>
       </nav>
+      
+      {/* ROUTES (Ye waisa hi rahega) */}
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/convert" element={<Converter />} />
