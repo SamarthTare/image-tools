@@ -1,62 +1,59 @@
 # ⚡ ImageTools Pro
 
-**ImageTools Pro** is a full-stack web application designed to handle common image processing tasks efficiently. It allows users to convert image formats, compress file sizes without losing quality, and generate PDFs from images instantly.
+**ImageTools Pro** is a full-stack MERN application designed for efficient image processing. It offers a suite of tools to convert, compress, resize, and generate PDFs from images, wrapped in a modern, user-friendly interface.
 
 🚀 **Live Demo:** [https://image-tools-red.vercel.app](https://image-tools-red.vercel.app)
 
 ---
 
-## 🌟 Features
+## 🌟 Key Features
 
-* **🖼️ Image Converter:** Convert images between **PNG, JPG/JPEG, and WEBP** formats.
-* **📉 Image Compressor:** Reduce image file size with adjustable quality levels (10% - 90%).
-* **📄 Image to PDF:** Instantly generate a downloadable PDF document from an uploaded image.
-* **⬇️ Smart Download:** Automatically handles secure file downloads from the cloud server.
-* **📱 Responsive Design:** Works seamlessly on Desktop, Tablet, and Mobile.
+### 🎨 Frontend (UX/UI)
+* **🖐️ Drag & Drop Interface:** Modern file upload experience using `react-dropzone`.
+* **📱 Responsive Design:** Fully responsive UI built with React & Bootstrap 5.
+* **🖼️ Image Converter:** Convert images between **PNG, JPG, and WEBP** formats.
+* **📏 Image Resizer:** Custom width & height adjustment using `sharp`.
+* **⬇️ Smart Download:** Secure blob-based file downloading without redirects.
+
+### 🛡️ Backend & Security
+* **🔒 Rate Limiting:** Implemented `express-rate-limit` to prevent DDoS attacks and spam (Limit: 100 requests/15 min).
+* **☁️ Secure Processing:** Images are processed in-memory or ephemeral storage on Render and cleaned up automatically.
+* **🚀 Dynamic Protocol Handling:** Solved **Mixed Content (HTTP/HTTPS)** issues between Vercel and Render proxy.
 
 ---
 
 ## 🛠️ Tech Stack
 
 ### **Frontend:**
-* **React.js (Vite):** For building a fast and interactive UI.
-* **Bootstrap 5:** For responsive styling and layout.
-* **Axios:** For handling HTTP requests.
-* **React Router DOM:** For seamless client-side navigation.
+* **React.js (Vite):** Fast client-side rendering.
+* **React Dropzone:** For modern drag-and-drop file uploads.
+* **Axios:** Handling HTTP requests with blob responses.
+* **Bootstrap 5:** Styling and responsive layout.
 
 ### **Backend:**
-* **Node.js & Express.js:** RESTful API architecture.
-* **Sharp:** High-performance Node.js image processing library.
-* **Multer:** Middleware for handling `multipart/form-data` (file uploads).
-* **PDFKit:** For generating PDF documents programmatically.
-
-### **Deployment:**
-* **Frontend:** Vercel
-* **Backend:** Render (Web Service)
+* **Node.js & Express:** REST API architecture.
+* **Sharp:** High-performance image processing (Resize, Convert, Compress).
+* **Multer:** Handling `multipart/form-data`.
+* **PDFKit:** Generating PDFs programmatically.
+* **Express Rate Limit:** API Security.
 
 ---
 
-## 💡 Key Challenges & Solutions
+## 💡 Challenges Solved
 
-During the development and deployment of this project, I encountered several technical challenges:
+1.  **CORS & Mixed Content Errors:**
+    * The frontend (HTTPS) and backend (HTTP Proxy) mismatch caused download failures.
+    * **Solution:** Implemented a dynamic `getBaseUrl` function in the backend to force HTTPS links on production and created a client-side `forceDownload` function using Blob objects.
 
-1.  **Mixed Content Error (CORS & SSL):**
-    * **Problem:** The Frontend is hosted on Vercel (HTTPS), while the Backend on Render acts as a proxy, causing browsers to block "Insecure Content" when trying to download files.
-    * **Solution:** Implemented **Dynamic Protocol Detection** in the backend and a **Force Download** function in the frontend using `Blob` objects to securely fetch and save files.
+2.  **Server Overload Protection:**
+    * **Solution:** Added `express-rate-limit` middleware to restrict excessive requests from a single IP, ensuring server stability on the free tier.
 
-2.  **Ephemeral File Storage:**
-    * **Problem:** Render's free tier deletes files after server restarts.
-    * **Solution:** Optimized the workflow to process and serve files immediately, ensuring users get their converted files instantly before any cleanup occurs.
-
-3.  **Client-Side Routing on Production:**
-    * **Problem:** Refreshing pages like `/convert` resulted in 404 errors on Vercel.
-    * **Solution:** Configured `vercel.json` rewrites to redirect all requests to `index.html`, allowing React Router to handle navigation correctly.
+3.  **User Experience (UX):**
+    * Replaced standard file inputs with an interactive **Drag & Drop Zone** for a modern feel.
 
 ---
 
 ## 🚀 How to Run Locally
-
-If you want to run this project on your local machine:
 
 1.  **Clone the Repository**
     ```bash
@@ -85,8 +82,8 @@ If you want to run this project on your local machine:
 ## 👨‍💻 Author
 
 **Samarth Tare**
-* **LinkedIn:** [linkedin.com/in/samarthtare](https://linkedin.com/in/samarthtare)
 * **GitHub:** [github.com/SamarthTare](https://github.com/SamarthTare)
+* **Contact:** samarthtare441@gmail.com
 
 ---
 
