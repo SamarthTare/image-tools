@@ -5,169 +5,124 @@ const sharp = require('sharp');
 const PDFDocument = require('pdfkit');
 const fs = require('fs');
 const path = require('path');
-const rateLimit = require('express-rate-limit'); // 👇 NEW IMPORT
+const rateLimit = require('express-rate-limit');
+const cron = require('node-cron'); // 👇 NEW IMPORT
 
 const app = express();
 
-// 👇 IMPORTANT FOR RENDER (Proxy Trust)
-// Render ek proxy ke peeche chalta hai, isliye ye zaroori hai
-// taaki hum user ka asli IP address pehchan sakein.
+// Render Proxy Trust
 app.set('trust proxy', 1);
 
 app.use(express.json());
+app.use(cors({ origin: "*", methods: ["GET", "POST", "PUT", "DELETE"] }));
 
-// CORS Setup
-app.use(cors({
-    origin: "*", 
-    methods: ["GET", "POST", "PUT", "DELETE"]
-}));
-
-// 👇 SECURITY: RATE LIMITER ADDED HERE
+// Rate Limiting
 const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 Minutes
-    max: 100, // Limit each IP to 100 requests per windowMs
-    message: "Too many requests from this IP, please try again after 15 minutes.",
+    windowMs: 15 * 60 * 1000, 
+    max: 100, 
+    message: "Too many requests, please try again later.",
     standardHeaders: true, 
     legacyHeaders: false,
 });
-
-// Apply rate limiting to all requests
 app.use(limiter);
 
-// Uploads folder public access
-app.use(express.static('uploads'));
-
+// Upload Directory Setup
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
     fs.mkdirSync(uploadDir);
 }
 
+app.use(express.static('uploads'));
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// --- HELPER FUNCTION: FORCE HTTPS ---
-const getBaseUrl = (req) => {
-    const host = req.get('host');
-    if (host.includes('localhost')) {
-        return `http://${host}`;
-    }
-    return "https://image-converter-free.onrender.com";
-}
+// --- 🧹 AUTO-CLEANUP CRON JOB (NEW FEATURE) ---
+// Har 10 minute me chalega: '*/10 * * * *'
+cron.schedule('*/10 * * * *', () => {
+    console.log('🧹 Running Auto-Cleanup...');
+    
+    fs.readdir(uploadDir, (err, files) => {
+        if (err) return console.error('Unable to scan directory:', err);
 
-// 1. 👇 DOWNLOAD ROUTE
-app.get('/download/:filename', (req, res) => {
-    const filePath = path.join(__dirname, 'uploads', req.params.filename);
-    res.download(filePath, req.params.filename, (err) => {
-        if (err) {
-            console.error("Download Error:", err);
-            res.status(500).send("Could not download file.");
-        }
+        files.forEach((file) => {
+            const filePath = path.join(uploadDir, file);
+            fs.stat(filePath, (err, stats) => {
+                if (err) return;
+
+                const now = Date.now();
+                const fileAge = now - stats.ctimeMs; // File kitni purani hai (ms)
+                const tenMinutes = 10 * 60 * 1000;
+
+                // Agar file 10 minute se purani hai, to delete karo
+                if (fileAge > tenMinutes) {
+                    fs.unlink(filePath, (err) => {
+                        if (err) console.error(`Error deleting ${file}:`, err);
+                        else console.log(`🗑️ Deleted old file: ${file}`);
+                    });
+                }
+            });
+        });
     });
 });
 
-// 2. 🖼️ CONVERT IMAGE
+// Helper: HTTPS URL
+const getBaseUrl = (req) => {
+    const host = req.get('host');
+    return host.includes('localhost') ? `http://${host}` : "https://image-converter-free.onrender.com";
+}
+
+// --- ROUTES ---
+
+app.get('/download/:filename', (req, res) => {
+    const filePath = path.join(uploadDir, req.params.filename);
+    res.download(filePath, (err) => {
+        if (err) console.error("Download Error:", err);
+    });
+});
+
 app.post('/convert', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
-        
         const format = req.body.format || 'png';
         const filename = `converted-${Date.now()}.${format}`;
-        const outputPath = path.join(uploadDir, filename);
-        
-        await sharp(req.file.buffer)
-            .toFormat(format)
-            .toFile(outputPath);
-
-        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
-
-        res.json({ downloadLink });
-    } catch (e) {
-        console.error(e);
-        res.status(500).send("Conversion Failed");
-    }
+        await sharp(req.file.buffer).toFormat(format).toFile(path.join(uploadDir, filename));
+        res.json({ downloadLink: `${getBaseUrl(req)}/download/${filename}` });
+    } catch (e) { res.status(500).send("Failed"); }
 });
 
-// 3. 📉 COMPRESS IMAGE
 app.post('/compress', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
-        
-        const quality = parseInt(req.body.quality) || 50; 
+        const quality = parseInt(req.body.quality) || 50;
         const filename = `compressed-${Date.now()}.jpeg`;
-        const outputPath = path.join(uploadDir, filename);
-        
-        await sharp(req.file.buffer)
-            .jpeg({ quality: quality }) 
-            .toFile(outputPath);
-
-        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
-
-        res.json({ downloadLink });
-    } catch (e) {
-        console.error(e);
-        res.status(500).send("Compression Failed");
-    }
+        await sharp(req.file.buffer).jpeg({ quality }).toFile(path.join(uploadDir, filename));
+        res.json({ downloadLink: `${getBaseUrl(req)}/download/${filename}` });
+    } catch (e) { res.status(500).send("Failed"); }
 });
 
-// 4. 📄 IMAGE TO PDF
 app.post('/to-pdf', upload.single('image'), (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
-        
         const filename = `doc-${Date.now()}.pdf`;
-        const filePath = path.join(uploadDir, filename);
         const doc = new PDFDocument();
-
-        const stream = fs.createWriteStream(filePath);
+        const stream = fs.createWriteStream(path.join(uploadDir, filename));
         doc.pipe(stream);
-        
-        doc.image(req.file.buffer, {
-            fit: [500, 700],
-            align: 'center',
-            valign: 'center'
-        });
-        
+        doc.image(req.file.buffer, { fit: [500, 700], align: 'center', valign: 'center' });
         doc.end();
-
-        stream.on('finish', () => {
-            const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
-            res.json({ downloadLink });
-        });
-
-    } catch (e) {
-        console.error(e);
-        res.status(500).send("PDF Generation Failed");
-    }
+        stream.on('finish', () => res.json({ downloadLink: `${getBaseUrl(req)}/download/${filename}` }));
+    } catch (e) { res.status(500).send("Failed"); }
 });
 
-// 5. 📏 RESIZE IMAGE
 app.post('/resize', upload.single('image'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).send("No file uploaded");
-        
         const width = parseInt(req.body.width);
         const height = parseInt(req.body.height);
-
-        if (!width || !height) return res.status(400).send("Width and Height are required");
-
-        const filename = `resized-${Date.now()}.png`; 
-        const outputPath = path.join(uploadDir, filename);
-        
-        await sharp(req.file.buffer)
-            .resize({ width: width, height: height, fit: 'fill' }) 
-            .toFile(outputPath);
-
-        const downloadLink = `${getBaseUrl(req)}/download/${filename}`;
-
-        res.json({ downloadLink });
-    } catch (e) {
-        console.error(e);
-        res.status(500).send("Resizing Failed");
-    }
+        const filename = `resized-${Date.now()}.png`;
+        await sharp(req.file.buffer).resize({ width, height, fit: 'fill' }).toFile(path.join(uploadDir, filename));
+        res.json({ downloadLink: `${getBaseUrl(req)}/download/${filename}` });
+    } catch (e) { res.status(500).send("Failed"); }
 });
 
-// START SERVER
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`🚀 Server running on port ${PORT}`));
